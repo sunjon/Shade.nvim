@@ -1,6 +1,6 @@
 # shade.nvim
 
-Shade is a Neovim plugin that dims your inactive window, making it easier to see the active window at a glance.
+Shade is a Neovim plugin that dims your inactive windows, making it easier to see the active window at a glance.
 
 <img src="https://raw.githubusercontent.com/sunjon/images/master/shade_demo.gif" alt="screenshot" width="800"/>
 
