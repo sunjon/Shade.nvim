@@ -115,7 +115,8 @@ local function create_highlights()
   if state.debug == true then
     overlay_color = "#77a992"
   else
-    overlay_color = "None"
+    overlay_color = "#1a1a1a"
+    -- overlay_color = "None"
   end
 
   api.nvim_command("highlight ShadeOverlay guibg=" .. overlay_color)
@@ -204,7 +205,7 @@ shade.init = function(opts)
   api.nvim_command [[ augroup shade ]]
   api.nvim_command [[ au! ]]
   api.nvim_command [[ au WinEnter,VimEnter * call v:lua.require'shade'.autocmd('WinEnter',  win_getid()) ]]
-  api.nvim_command [[ au WinClosed         * call v:lua.require'shade'.autocmd('WinClosed', win_getid()) ]]
+  api.nvim_command [[ au WinClosed         * call v:lua.require'shade'.autocmd('WinClosed', expand('<afile>')) ]]
   api.nvim_command [[ augroup END ]]
 
   log("Init", "-- Shade.nvim started --")
@@ -292,9 +293,12 @@ shade.hide_overlay = function(winid)
 end
 
 -- destroy overlay window on WinClosed
- shade.on_win_closed = function(event, winid)
+shade.on_win_closed = function(event, winid)
+  winid = tonumber(winid)  -- TODO: when did winid become a string?
   local overlay = state.active_overlays[winid]
-  if overlay then
+  if overlay == nil then
+    log(event, 'no overlay to close')
+  else
     if state.debug == true then
       -- remove extmarks
       local buf = api.nvim_win_get_buf(overlay.winid)
