@@ -6,10 +6,15 @@ Shade is a Neovim plugin that dims your inactive windows, making it easier to se
 
 ## Installation
 
-### [Packer.nvim](https://github.com/wbthomason/packer.nvim) 
+### [Packer](https://github.com/wbthomason/packer.nvim) 
 
 ```
 use 'sunjon/shade.nvim'
+```
+### [Vim-Plug](https://github.com/junegunn/vim-plug)
+
+```
+Plug 'sunjon/shade.nvim'
 ```
 
 ## Configuration
@@ -28,6 +33,7 @@ require'shade'.setup({
 
 * The `keys` table above shows available actions. No mappings are defined by default.
 
+* The color of the numbers in the brightness control popup can be customized by creating a highlight group named: `ShadeBrightnessPopup` and setting the attributes to your liking.
 
 ## License
 
