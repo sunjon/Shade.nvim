@@ -182,7 +182,7 @@ shade.init = function(opts)
   end
 
   -- TODO: FIXME - highlights aren't available at VimEnter
-  vim.defer_fn(create_overlay_highlight, 50)
+  create_overlay_highlight()
 
   api.nvim_set_decoration_provider(state.shade_nsid, {
     on_win = shade.event_listener
