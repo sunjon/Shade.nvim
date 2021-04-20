@@ -188,6 +188,7 @@ shade.init = function(opts)
   api.nvim_command [[ au! ]]
   api.nvim_command [[ au WinEnter,VimEnter * call v:lua.require'shade'.autocmd('WinEnter',  win_getid()) ]]
   api.nvim_command [[ au WinClosed         * call v:lua.require'shade'.autocmd('WinClosed', expand('<afile>')) ]]
+  api.nvim_command [[ au TabEnter          * call v:lua.require'shade'.autocmd('TabEnter', win_getid()) ]]
   api.nvim_command [[ augroup END ]]
 
   log("Init", "-- Shade.nvim started --")
@@ -406,6 +407,16 @@ M.autocmd = function(event, winid)
     end,
     ["WinClosed"] = function()
       shade.on_win_closed(event, winid)
+    end,
+    ["TabEnter"] = function()
+      for parent_winid, overlay in pairs(state.active_overlays) do
+        if parent_winid ~= winid then
+          api.nvim_win_close(overlay.winid, false)
+          log(event, ("overlay %d for win [%d] destroyed"):format(overlay.winid, parent_winid))
+          state.active_overlays[parent_winid] = nil
+        end
+      end
+      -- print(vim.inspect(state.active_overlays))
     end,
   }
 
