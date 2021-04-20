@@ -97,7 +97,7 @@ local function digitize(number)
 end
 
 --
-local filter_wininfo = function(wininfo)
+local function filter_wininfo(wininfo)
   return {
     relative  = "editor",
     style     = "minimal",
@@ -110,7 +110,7 @@ local filter_wininfo = function(wininfo)
 end
 
 --
-local function create_overlay_highlight()
+local function create_highlights()
   local overlay_color
   if state.debug == true then
     overlay_color = "#77a992"
@@ -128,6 +128,19 @@ local function create_overlay_highlight()
 end
 
 --
+
+local function create_floatwin(config)
+  local window = {}
+
+  window.wincfg = config
+  window.bufid  = api.nvim_create_buf(false, true)
+  window.winid  = api.nvim_open_win(window.bufid, false, config)
+
+  return window
+end
+
+--
+
 local function show_window_metrics(window)
   local wincfg = window.wincfg
 
@@ -181,8 +194,7 @@ shade.init = function(opts)
     end
   end
 
-  -- TODO: FIXME - highlights aren't available at VimEnter
-  create_overlay_highlight()
+  create_highlights()
 
   api.nvim_set_decoration_provider(state.shade_nsid, {
     on_win = shade.event_listener
@@ -191,7 +203,7 @@ shade.init = function(opts)
   -- setup autocommands
   api.nvim_command [[ augroup shade ]]
   api.nvim_command [[ au! ]]
-  api.nvim_command [[ au WinEnter,VimEnter * call v:lua.require'shade'.autocmd('WinEnter', win_getid()) ]]
+  api.nvim_command [[ au WinEnter,VimEnter * call v:lua.require'shade'.autocmd('WinEnter',  win_getid()) ]]
   api.nvim_command [[ au WinClosed         * call v:lua.require'shade'.autocmd('WinClosed', win_getid()) ]]
   api.nvim_command [[ augroup END ]]
 
@@ -202,27 +214,31 @@ end
 
 --
 
-local function create_overlay(winid)
-  if not state.active_overlays[winid] then
-    local wincfg = vim.api.nvim_call_function('getwininfo', {winid})[1]
+local function create_overlay_window(winid)
+  local wincfg = vim.api.nvim_call_function('getwininfo', {winid})[1]
 
-    -- ignore floating windows
-    if wincfg['relative'] == nil then
-      wincfg = filter_wininfo(wincfg)
-      local new_window = shade.create_floatwin(wincfg)
-      state.active_overlays[winid] = new_window
+  wincfg = filter_wininfo(wincfg)
 
-      api.nvim_win_set_option(new_window.winid, "winhighlight", "Normal:ShadeOverlay")
-      api.nvim_win_set_option(new_window.winid, "winblend", state.overlay_opacity)
-
-      log('create overlay', ("[%d] : overlay %d created"):format(winid, state.active_overlays[winid].winid))
-    end
+  -- ignore floating windows
+  if wincfg['relative'] == nil then
+    return
   end
+  local new_window = create_floatwin(wincfg)
+  state.active_overlays[winid] = new_window
+
+  api.nvim_win_set_option(new_window.winid, "winhighlight", "Normal:ShadeOverlay")
+  api.nvim_win_set_option(new_window.winid, "winblend", state.overlay_opacity)
+
+  log('create overlay', ("[%d] : overlay %d created"):format(winid, state.active_overlays[winid].winid))
 end
 
 shade.on_win_enter = function(event, winid)
-  log(event, 'activating window:' .. winid)
-  create_overlay(winid)
+  if not state.active_overlays[winid] then
+      log(event, 'activating window:' .. winid)
+      create_overlay_window(winid)
+  end
+
+  -- hide the overlay on entered window
   shade.hide_overlay(winid)
 
   -- place overlays on all other windows
@@ -235,12 +251,10 @@ shade.on_win_enter = function(event, winid)
 end
 
 shade.event_listener = function(_, winid, _, _, _)
-  -- print("yo: " .. winid)
   local cached = state.active_overlays[winid]
   if not cached then return end
 
   local current = filter_wininfo(vim.api.nvim_call_function('getwininfo', { winid })[1])
-  -- print(vim.inspect(current))
 
   -- check if window dims match cache
   local resize_metrics = {'width', 'height', 'wincol', 'winrow'}
@@ -259,21 +273,9 @@ shade.event_listener = function(_, winid, _, _, _)
 end
 
 --
-shade.create_floatwin = function(config)
-  local window = {}
-
-  window.wincfg = config
-  window.bufid  = api.nvim_create_buf(false, true)
-  window.winid  = api.nvim_open_win(window.bufid, false, config)
-
-  return window
-end
-
---
 shade.show_overlay = function(winid)
   local overlay = state.active_overlays[winid]
   if overlay then
-    -- print(vim.inspect(overlay))
     api.nvim_win_set_option(overlay.winid, "winblend", state.overlay_opacity)
     log('show_overlay', ("[%d] : overlay %d ON (winblend: %d)"):format(winid, overlay.winid, state.overlay_opacity))
   else
@@ -328,7 +330,7 @@ shade.change_brightness = function(level)
   }
 
   if state.notification_window == nil then
-    state.notification_window = shade.create_floatwin(status_opts)
+    state.notification_window = create_floatwin(status_opts)
     api.nvim_win_set_option(state.notification_window.winid, "winhighlight", "Normal:ShadeBrightnessPopup")
     api.nvim_win_set_option(state.notification_window.winid, "winblend", 10)
     log('notification', 'popup created')
@@ -396,7 +398,7 @@ M.toggle = function()
     print('on')
     for _, winid in pairs(api.nvim_tabpage_list_wins(0)) do
       if winid ~= api.nvim_get_current_win() then
-        create_overlay(winid)
+        create_overlay_window(winid)
       end
     end
     state.active = true
