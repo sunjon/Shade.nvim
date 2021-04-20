@@ -115,11 +115,10 @@ local function create_overlay_highlight()
   if state.debug == true then
     overlay_color = "#77a992"
   else
-    local gui_bg = api.nvim_get_hl_by_name('Normal', true).background
-    overlay_color = ("#%x"):format(gui_bg)
+    overlay_color = "None"
   end
 
-  api.nvim_command("highlight shadeOverlay guibg=" .. overlay_color)
+  api.nvim_command("highlight ShadeOverlay guibg=" .. overlay_color)
 
   -- Link to default hl_group if not user defined
   local exists, _ = pcall(function() return vim.api.nvim_get_hl_by_name('ShadeBrightnessPopup', false) end)
@@ -213,7 +212,7 @@ local function create_overlay(winid)
       local new_window = shade.create_floatwin(wincfg)
       state.active_overlays[winid] = new_window
 
-      api.nvim_win_set_option(new_window.winid, "winhighlight", "Normal:shadeOverlay")
+      api.nvim_win_set_option(new_window.winid, "winhighlight", "Normal:ShadeOverlay")
       api.nvim_win_set_option(new_window.winid, "winblend", state.overlay_opacity)
 
       log('create overlay', ("[%d] : overlay %d created"):format(winid, state.active_overlays[winid].winid))
