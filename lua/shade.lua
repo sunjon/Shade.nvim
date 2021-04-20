@@ -141,24 +141,6 @@ end
 
 --
 
-local function show_window_metrics(window)
-  local wincfg = window.wincfg
-
-  -- show window metrics in virt_text
-  local dims_str = ('%d x %d'):format(wincfg.width, wincfg.height)
-  local pad = (' '):rep(wincfg.width - #dims_str - 2)
-  local virt_text_opts = {
-    hl_group      = 'Error',
-    virt_text     = {{ pad .. dims_str }},
-    virt_text_pos = 'overlay',
-    hl_mode       = 'replace'
-  }
-
-  -- TODO: why don't the extmarks work?
-  api.nvim_buf_clear_namespace(window.bufid, state.shade_nsid, 1, 1)
-  api.nvim_buf_set_extmark(window.bufid, state.shade_nsid, 1, 0, virt_text_opts)
-end
-
 local function map_key(mode, key, action)
   local req_module = ("<cmd>lua require'shade'.%s<CR>"):format(action)
   vim.api.nvim_set_keymap(mode, key, req_module, {noremap = true, silent = true})
@@ -260,9 +242,6 @@ shade.event_listener = function(_, winid, _, _, _)
       log("event_listener: resized", winid)
       state.active_overlays[winid].wincfg = current_wincfg
       api.nvim_win_set_config(cached.winid, filter_wininfo(current_wincfg))
-      if state.debug == true then
-        show_window_metrics(state.active_overlays[winid])
-      end
       goto continue
     end
   end
@@ -298,11 +277,6 @@ shade.on_win_closed = function(event, winid)
   if overlay == nil then
     log(event, 'no overlay to close')
   else
-    if state.debug == true then
-      -- remove extmarks
-      local buf = api.nvim_win_get_buf(overlay.winid)
-      api.nvim_buf_clear_namespace(buf, state.shade_nsid, 1, 1)
-    end
     api.nvim_win_close(overlay.winid, false)
     log(event, ("[%d] : overlay %d destroyed"):format(winid, overlay.winid))
     state.active_overlays[winid] = nil
