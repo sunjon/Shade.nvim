@@ -399,7 +399,8 @@ M.toggle = function()
     print('on')
     for _, winid in pairs(api.nvim_tabpage_list_wins(0)) do
       if winid ~= api.nvim_get_current_win() then
-        create_overlay_window(winid)
+        local wincfg = api.nvim_call_function('getwininfo', {winid})[1]
+        create_overlay_window(winid, filter_wininfo(wincfg))
       end
     end
     state.active = true
