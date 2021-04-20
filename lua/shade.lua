@@ -147,6 +147,57 @@ local function map_key(mode, key, action)
   vim.api.nvim_set_keymap(mode, key, req_module, {noremap = true, silent = true})
 end
 
+local function hide_overlay(winid)
+  local overlay = state.active_overlays[winid]
+  if overlay then
+    api.nvim_win_set_option(overlay.winid, "winblend", 100)
+    log("hide_overlay",
+      ("[%d] : overlay %d OFF (winblend: 100 [disabled])"):format(winid, overlay.winid))
+  else
+    log("hide_overlay", "overlay not found for " .. winid)
+  end
+end
+
+local function show_overlay(winid)
+  local overlay = state.active_overlays[winid]
+  if overlay then
+    api.nvim_win_set_option(overlay.winid, "winblend", state.overlay_opacity)
+    log("show_overlay",
+      ("[%d] : overlay %d ON (winblend: %d)"):format(winid, overlay.winid, state.overlay_opacity))
+  else
+    log("show_overlay", "overlay not found for " .. winid)
+  end
+end
+
+local function remove_all_overlays()
+  for _, overlay in pairs(state.active_overlays) do
+    api.nvim_win_close(overlay.winid, true)
+  end
+  state.active_overlays = {}
+end
+
+
+local function create_overlay_window(winid, config)
+  local new_window = create_floatwin(config)
+  state.active_overlays[winid] = new_window
+
+  api.nvim_win_set_option(new_window.winid, "winhighlight", "Normal:ShadeOverlay")
+  api.nvim_win_set_option(new_window.winid, "winblend", state.overlay_opacity)
+
+  log("create overlay",
+    ("[%d] : overlay %d created"):format(winid, state.active_overlays[winid].winid))
+end
+
+--
+local function create_tabpage_overlays(tabid)
+  local wincfg
+  for _, winid in pairs(api.nvim_tabpage_list_wins(tabid)) do
+    wincfg = api.nvim_call_function("getwininfo", {winid})[1]
+    create_overlay_window(winid, filter_wininfo(wincfg))
+  end
+  hide_overlay(api.nvim_get_current_win())
+end
+
 local shade = {}
 
 -- init
@@ -198,17 +249,6 @@ end
 
 --
 
-local function create_overlay_window(winid, config)
-  local new_window = create_floatwin(config)
-  state.active_overlays[winid] = new_window
-
-  api.nvim_win_set_option(new_window.winid, "winhighlight", "Normal:ShadeOverlay")
-  api.nvim_win_set_option(new_window.winid, "winblend", state.overlay_opacity)
-
-  log("create overlay",
-    ("[%d] : overlay %d created"):format(winid, state.active_overlays[winid].winid))
-end
-
 shade.on_win_enter = function(event, winid)
   log(event, winid)
   if not state.active_overlays[winid] then
@@ -222,13 +262,13 @@ shade.on_win_enter = function(event, winid)
   end
 
   -- hide the overlay on entered window
-  shade.hide_overlay(winid)
+  hide_overlay(winid)
 
   -- place overlays on all other windows
   for id, _ in pairs(state.active_overlays) do
     if id ~= winid then
       log("deactivating window", id)
-      shade.show_overlay(id)
+      show_overlay(id)
     end
   end
 end
@@ -254,29 +294,6 @@ shade.event_listener = function(_, winid, _, _, _)
 end
 
 --
-shade.show_overlay = function(winid)
-  local overlay = state.active_overlays[winid]
-  if overlay then
-    api.nvim_win_set_option(overlay.winid, "winblend", state.overlay_opacity)
-    log("show_overlay",
-      ("[%d] : overlay %d ON (winblend: %d)"):format(winid, overlay.winid, state.overlay_opacity))
-  else
-    log("show_overlay", "overlay not found for " .. winid)
-  end
-end
-
--- hide the overlay on WinEnter
-shade.hide_overlay = function(winid)
-  local overlay = state.active_overlays[winid]
-  if overlay then
-    api.nvim_win_set_option(overlay.winid, "winblend", 100)
-    log("hide_overlay",
-      ("[%d] : overlay %d OFF (winblend: 100 [disabled])"):format(winid, overlay.winid))
-  else
-    log("hide_overlay", "overlay not found for " .. winid)
-  end
-end
-
 -- destroy overlay window on WinClosed
 shade.on_win_closed = function(event, winid)
   winid = tonumber(winid) -- TODO: when did winid become a string?
@@ -376,21 +393,12 @@ end
 
 M.toggle = function()
   if state.active then
+    remove_all_overlays()
     print("off")
-    -- remove overlays
-    for _, overlay in pairs(state.active_overlays) do
-      api.nvim_win_close(overlay.winid, true)
-    end
-    state.active_overlays = {}
     state.active = false
   else
+    create_tabpage_overlays(0)
     print("on")
-    local wincfg
-    for _, winid in pairs(api.nvim_tabpage_list_wins(0)) do
-      wincfg = api.nvim_call_function("getwininfo", {winid})[1]
-      create_overlay_window(winid, filter_wininfo(wincfg))
-    end
-    shade.hide_overlay(api.nvim_get_current_win())
     state.active = true
   end
 end
@@ -409,14 +417,8 @@ M.autocmd = function(event, winid)
       shade.on_win_closed(event, winid)
     end,
     ["TabEnter"] = function()
-      for parent_winid, overlay in pairs(state.active_overlays) do
-        if parent_winid ~= winid then
-          api.nvim_win_close(overlay.winid, false)
-          log(event, ("overlay %d for win [%d] destroyed"):format(overlay.winid, parent_winid))
-          state.active_overlays[parent_winid] = nil
-        end
-      end
-      -- print(vim.inspect(state.active_overlays))
+      remove_all_overlays()
+      create_tabpage_overlays(0)
     end,
   }
 
