@@ -227,15 +227,13 @@ end
 shade.on_win_enter = function(event, winid)
   log(event, winid)
   if not state.active_overlays[winid] then
-
     local float_cfg = api.nvim_win_get_config(winid)
-    if float_cfg['relative'] ~= '' then
+    if float_cfg['relative'] == '' then
+      local wincfg = api.nvim_call_function('getwininfo', {winid})[1]
+      create_overlay_window(winid, filter_wininfo(wincfg))
+    else
       log(event, 'window ignored: ' .. winid)
-      return
     end
-
-    local wincfg = api.nvim_call_function('getwininfo', {winid})[1]
-    create_overlay_window(winid, filter_wininfo(wincfg))
   end
 
   -- hide the overlay on entered window
