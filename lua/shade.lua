@@ -110,13 +110,12 @@ local function filter_wininfo(wininfo)
 end
 
 --
-local function create_highlights()
+local function create_hl_groups()
   local overlay_color
   if state.debug == true then
     overlay_color = "#77a992"
   else
-    overlay_color = "#1a1a1a"
-    -- overlay_color = "None"
+    overlay_color = "None"
   end
 
   api.nvim_command("highlight ShadeOverlay guibg=" .. overlay_color)
@@ -195,7 +194,7 @@ shade.init = function(opts)
     end
   end
 
-  create_highlights()
+  create_hl_groups()
 
   api.nvim_set_decoration_provider(state.shade_nsid, {
     on_win = shade.event_listener
