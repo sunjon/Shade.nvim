@@ -214,16 +214,8 @@ end
 
 --
 
-local function create_overlay_window(winid)
-  local wincfg = vim.api.nvim_call_function('getwininfo', {winid})[1]
-
-  wincfg = filter_wininfo(wincfg)
-
-  -- ignore floating windows
-  if wincfg['relative'] == nil then
-    return
-  end
-  local new_window = create_floatwin(wincfg)
+local function create_overlay_window(winid, config)
+  local new_window = create_floatwin(config)
   state.active_overlays[winid] = new_window
 
   api.nvim_win_set_option(new_window.winid, "winhighlight", "Normal:ShadeOverlay")
@@ -233,9 +225,14 @@ local function create_overlay_window(winid)
 end
 
 shade.on_win_enter = function(event, winid)
+  log(event, winid)
   if not state.active_overlays[winid] then
-      log(event, 'activating window:' .. winid)
-      create_overlay_window(winid)
+    local wincfg = vim.api.nvim_call_function('getwininfo', {winid})[1]
+    if wincfg['relative'] ~= nil then
+      log(event, 'window ignored: ' .. winid)
+      return
+    end
+    create_overlay_window(winid, filter_wininfo(wincfg))
   end
 
   -- hide the overlay on entered window
@@ -254,15 +251,14 @@ shade.event_listener = function(_, winid, _, _, _)
   local cached = state.active_overlays[winid]
   if not cached then return end
 
-  local current = filter_wininfo(vim.api.nvim_call_function('getwininfo', { winid })[1])
-
   -- check if window dims match cache
+  local current_wincfg = vim.api.nvim_call_function('getwininfo', { winid })[1]
   local resize_metrics = {'width', 'height', 'wincol', 'winrow'}
   for _, m in pairs(resize_metrics) do
-    if current[m] ~= cached.wincfg[m] then
+    if current_wincfg[m] ~= cached.wincfg[m] then
       log("event_listener: resized", winid)
-      state.active_overlays[winid].wincfg = current
-      api.nvim_win_set_config(cached.winid, current)
+      state.active_overlays[winid].wincfg = current_wincfg
+      api.nvim_win_set_config(cached.winid, filter_wininfo(current_wincfg))
       if state.debug == true then
         show_window_metrics(state.active_overlays[winid])
       end
