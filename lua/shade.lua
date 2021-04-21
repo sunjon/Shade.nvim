@@ -3,7 +3,7 @@ local api = vim.api
 
 local E = {}
 E.DEFAULT_OVERLAY_OPACITY = 50
-E.DEFAULT_OPACITY_STEP    = 10
+E.DEFAULT_OPACITY_STEP    = 1
 E.DEBUG_OVERLAY_OPACITY   = 90
 E.NOTIFICATION_TIMEOUT    = 1000 -- ms
 
@@ -257,7 +257,8 @@ shade.on_win_enter = function(event, winid)
       local wincfg = api.nvim_call_function("getwininfo", {winid})[1]
       create_overlay_window(winid, filter_wininfo(wincfg))
     else
-      log(event, "window ignored: " .. winid)
+      log(event, "floating window ignored: " .. winid)
+      return -- TODO: make optional to allow to continue and hide last active window on floating window?
     end
   end
 
@@ -321,10 +322,10 @@ shade.change_brightness = function(level)
     relative = "editor",
     style = "minimal",
     focusable = false,
-    row = 1,
-    col = vim.o.columns - 18,
-    width = 16,
-    height = 4,
+    row       = 1,
+    col       = vim.o.columns - 18,
+    width     = 16,
+    height    = 4,
   }
 
   if state.notification_window == nil then
