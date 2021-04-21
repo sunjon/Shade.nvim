@@ -211,6 +211,7 @@ shade.init = function(opts)
                             (state.debug == true and E.DEBUG_OVERLAY_OPACITY or
                               E.DEFAULT_OVERLAY_OPACITY)
   state.opacity_step = opts.opacity_step or E.DEFAULT_OPACITY_STEP
+  state.shade_under_float = opts.shade_under_float or true
 
   state.shade_nsid = api.nvim_create_namespace("shade")
 
@@ -258,7 +259,9 @@ shade.on_win_enter = function(event, winid)
       create_overlay_window(winid, filter_wininfo(wincfg))
     else
       log(event, "floating window ignored: " .. winid)
-      return -- TODO: make optional to allow to continue and hide last active window on floating window?
+      if not state.shade_under_float then
+        return
+      end
     end
   end
 
