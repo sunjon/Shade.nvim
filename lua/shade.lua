@@ -14,7 +14,7 @@ state.shade_nsid          = nil
 state.notification_timer  = nil
 state.notification_window = nil
 
--- TODO: log to file
+-- TODO: log to file and/or nvim_echo
 local function log(event, msg)
   if state.debug == false then
     return
@@ -147,27 +147,43 @@ local function map_key(mode, key, action)
   vim.api.nvim_set_keymap(mode, key, req_module, {noremap = true, silent = true})
 end
 
-local function hide_overlay(winid)
-  local overlay = state.active_overlays[winid]
-  if overlay then
-    api.nvim_win_set_option(overlay.winid, "winblend", 100)
-    log("hide_overlay",
-      ("[%d] : overlay %d OFF (winblend: 100 [disabled])"):format(winid, overlay.winid))
-  else
-    log("hide_overlay", "overlay not found for " .. winid)
-  end
-end
 
-local function show_overlay(winid)
+
+local function shade_window(winid)
   local overlay = state.active_overlays[winid]
   if overlay then
     api.nvim_win_set_option(overlay.winid, "winblend", state.overlay_opacity)
-    log("show_overlay",
+    log("shade_window",
       ("[%d] : overlay %d ON (winblend: %d)"):format(winid, overlay.winid, state.overlay_opacity))
   else
-    log("show_overlay", "overlay not found for " .. winid)
+    log("shade_window", "overlay not found for " .. winid)
   end
 end
+
+local function unshade_window(winid)
+  local overlay = state.active_overlays[winid]
+  if overlay then
+    api.nvim_win_set_option(overlay.winid, "winblend", 100)
+    log("unshade_window",
+      ("[%d] : overlay %d OFF (winblend: 100 [disabled])"):format(winid, overlay.winid))
+  else
+    log("unshade_window", "overlay not found for " .. winid)
+  end
+end
+
+-- shade everything on a tabpage except current window
+local function shade_tabpage(winid)
+  winid = winid or api.nvim_get_current_win()
+  for overlay_winid, _ in pairs(state.active_overlays) do
+    local diff_enabled = api.nvim_win_get_option(overlay_winid, 'diff')
+    if overlay_winid ~= winid and diff_enabled == false then
+      log("deactivating window", overlay_winid)
+      shade_window(overlay_winid)
+    end
+  end
+end
+
+--
 
 local function remove_all_overlays()
   for _, overlay in pairs(state.active_overlays) do
@@ -195,7 +211,7 @@ local function create_tabpage_overlays(tabid)
     wincfg = api.nvim_call_function("getwininfo", {winid})[1]
     create_overlay_window(winid, filter_wininfo(wincfg))
   end
-  hide_overlay(api.nvim_get_current_win())
+  unshade_window(api.nvim_get_current_win())
 end
 
 local shade = {}
@@ -236,12 +252,15 @@ shade.init = function(opts)
   api.nvim_set_decoration_provider(state.shade_nsid, {on_win = shade.event_listener})
 
   -- setup autocommands
-  api.nvim_command [[ augroup shade ]]
-  api.nvim_command [[ au! ]]
-  api.nvim_command [[ au WinEnter,VimEnter * call v:lua.require'shade'.autocmd('WinEnter',  win_getid()) ]]
-  api.nvim_command [[ au WinClosed         * call v:lua.require'shade'.autocmd('WinClosed', expand('<afile>')) ]]
-  api.nvim_command [[ au TabEnter          * call v:lua.require'shade'.autocmd('TabEnter', win_getid()) ]]
-  api.nvim_command [[ augroup END ]]
+  api.nvim_exec([[
+    augroup shade
+    au!
+    au WinEnter,VimEnter * call v:lua.require'shade'.autocmd('WinEnter',  win_getid())
+    au WinClosed         * call v:lua.require'shade'.autocmd('WinClosed', expand('<afile>'))
+    au TabEnter          * call v:lua.require'shade'.autocmd('TabEnter',  win_getid())
+    au OptionSet         diff call v:lua.require'shade'.autocmd('OptionSet', win_getid())
+    augroup END
+  ]], false)
 
   log("Init", "-- Shade.nvim started --")
 
@@ -266,15 +285,10 @@ shade.on_win_enter = function(event, winid)
   end
 
   -- hide the overlay on entered window
-  hide_overlay(winid)
+  unshade_window(winid)
 
   -- place overlays on all other windows
-  for id, _ in pairs(state.active_overlays) do
-    if id ~= winid then
-      log("deactivating window", id)
-      show_overlay(id)
-    end
-  end
+  shade_tabpage(winid)
 end
 
 shade.event_listener = function(_, winid, _, _, _)
@@ -424,6 +438,13 @@ M.autocmd = function(event, winid)
       remove_all_overlays()
       create_tabpage_overlays(0)
     end,
+    ["OptionSet"] = function()
+     local diff_enabled = api.nvim_get_vvar('option_new')
+     if diff_enabled then
+       unshade_window(winid)
+       shade_tabpage(winid)
+     end
+    end
   }
 
   local fn = event_fn[event]
