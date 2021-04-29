@@ -341,7 +341,7 @@ shade.change_brightness = function(level)
     focusable = false,
     row       = 1,
     col       = vim.o.columns - 18,
-    width     = 16,
+    width     = 18,
     height    = 4,
   }
 
