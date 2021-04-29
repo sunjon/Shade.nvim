@@ -117,7 +117,7 @@ local function create_hl_groups()
     overlay_color = "None"
   end
 
-  api.nvim_command("highlight ShadeOverlay guibg=" .. overlay_color)
+  api.nvim_command("highlight ShadeOverlay gui='nocombine' guibg=" .. overlay_color)
 
   -- Link to default hl_group if not user defined
   local exists, _ = pcall(function()
@@ -251,7 +251,7 @@ shade.init = function(opts)
 
   api.nvim_set_decoration_provider(state.shade_nsid, {on_win = shade.event_listener})
 
-  -- setup autocommands
+  -- setup autocommands -- TODO: set a precalculated winid
   api.nvim_exec([[
     augroup shade
     au!
