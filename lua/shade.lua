@@ -152,9 +152,11 @@ end
 local function shade_window(winid)
   local overlay = state.active_overlays[winid]
   if overlay then
-    api.nvim_win_set_option(overlay.winid, "winblend", state.overlay_opacity)
-    log("shade_window",
-      ("[%d] : overlay %d ON (winblend: %d)"):format(winid, overlay.winid, state.overlay_opacity))
+    if api.nvim_win_is_valid(overlay.winid) then
+      api.nvim_win_set_option(overlay.winid, "winblend", state.overlay_opacity)
+      log("shade_window",
+        ("[%d] : overlay %d ON (winblend: %d)"):format(winid, overlay.winid, state.overlay_opacity))
+    end
   else
     log("shade_window", "overlay not found for " .. winid)
   end
@@ -163,9 +165,11 @@ end
 local function unshade_window(winid)
   local overlay = state.active_overlays[winid]
   if overlay then
-    api.nvim_win_set_option(overlay.winid, "winblend", 100)
-    log("unshade_window",
-      ("[%d] : overlay %d OFF (winblend: 100 [disabled])"):format(winid, overlay.winid))
+    if api.nvim_win_is_valid(overlay.winid) then
+      api.nvim_win_set_option(overlay.winid, "winblend", 100)
+      log("unshade_window",
+        ("[%d] : overlay %d OFF (winblend: 100 [disabled])"):format(winid, overlay.winid))
+    end
   else
     log("unshade_window", "overlay not found for " .. winid)
   end
