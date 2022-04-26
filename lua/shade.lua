@@ -151,27 +151,27 @@ end
 --
 
 local function is_filetype_excluded(filetype)
-    for _, value in ipairs(state.exclude_filetypes) do
-        if value == filetype then
-            return true
-        end
-
+  for _, value in ipairs(state.exclude_filetypes) do
+    if value == filetype then
+      return true
     end
-    return false
+
+  end
+  return false
 end
 
 local function can_shade(winid)
-    if #state.exclude_filetypes == 0 then
-        return true
-    end
-    local buf_id = vim.api.nvim_win_get_buf(winid)
-    local filetype = vim.api.nvim_buf_get_option(buf_id, "filetype")
-
-    if is_filetype_excluded(filetype) then
-        return false
-    end
-
+  if #state.exclude_filetypes == 0 then
     return true
+  end
+  local buf_id = vim.api.nvim_win_get_buf(winid)
+  local filetype = vim.api.nvim_buf_get_option(buf_id, "filetype")
+
+  if is_filetype_excluded(filetype) then
+    return false
+  end
+
+  return true
 end
 
 --
