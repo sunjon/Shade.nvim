@@ -148,6 +148,33 @@ local function map_key(mode, key, action)
 end
 
 
+--
+
+local function is_filetype_excluded(filetype)
+    for _, value in ipairs(state.exclude_filetypes) do
+        if value == filetype then
+            return true
+        end
+
+    end
+    return false
+end
+
+local function can_shade(winid)
+    if #state.exclude_filetypes == 0 then
+        return true
+    end
+    local buf_id = vim.api.nvim_win_get_buf(winid)
+    local filetype = vim.api.nvim_buf_get_option(buf_id, "filetype")
+
+    if is_filetype_excluded(filetype) then
+        return false
+    end
+
+    return true
+end
+
+--
 
 local function shade_window(winid)
   local overlay = state.active_overlays[winid]
@@ -181,8 +208,10 @@ local function shade_tabpage(winid)
   for overlay_winid, _ in pairs(state.active_overlays) do
     local diff_enabled = api.nvim_win_get_option(overlay_winid, 'diff')
     if overlay_winid ~= winid and diff_enabled == false then
-      log("deactivating window", overlay_winid)
-      shade_window(overlay_winid)
+      if can_shade(overlay_winid) then
+        log("deactivating window", overlay_winid)
+        shade_window(overlay_winid)
+      end
     end
   end
 end
@@ -232,6 +261,7 @@ shade.init = function(opts)
                               E.DEFAULT_OVERLAY_OPACITY)
   state.opacity_step = opts.opacity_step or E.DEFAULT_OPACITY_STEP
   state.shade_under_float = opts.shade_under_float or true
+  state.exclude_filetypes = opts.exclude_filetypes or {}
 
   state.shade_nsid = api.nvim_create_namespace("shade")
 
