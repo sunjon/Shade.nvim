@@ -242,7 +242,9 @@ local function create_tabpage_overlays(tabid)
   local wincfg
   for _, winid in pairs(api.nvim_tabpage_list_wins(tabid)) do
     wincfg = api.nvim_call_function("getwininfo", {winid})[1]
-    create_overlay_window(winid, filter_wininfo(wincfg))
+    if can_shade(winid) then
+      create_overlay_window(winid, filter_wininfo(wincfg))
+    end
   end
   unshade_window(api.nvim_get_current_win())
 end
