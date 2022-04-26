@@ -27,13 +27,16 @@ require'shade'.setup({
     brightness_up    = '<C-Up>',
     brightness_down  = '<C-Down>',
     toggle           = '<Leader>s',
-  }
+  },
+  exclude_filetypes = { "neo-tree", "markdown" }
 })
 ```
 
 * The `keys` table above shows available actions. No mappings are defined by default.
 
 * The color of the numbers in the brightness control popup can be customized by creating a highlight group named: `ShadeBrightnessPopup` and setting the attributes to your liking.
+
+* The `exclude_filetypes` table above is just an example. No filetypes are excluded by default.
 
 ## License
 
