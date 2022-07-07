@@ -1,3 +1,5 @@
+**This is a fork with all the existing PRs merged. I will try to further improve the plugin in the future.**
+
 # shade.nvim
 
 Shade is a Neovim plugin that dims your inactive windows, making it easier to see the active window at a glance.
@@ -9,12 +11,12 @@ Shade is a Neovim plugin that dims your inactive windows, making it easier to se
 ### [Packer](https://github.com/wbthomason/packer.nvim) 
 
 ```
-use 'sunjon/shade.nvim'
+use 'jghauser/shade.nvim'
 ```
 ### [Vim-Plug](https://github.com/junegunn/vim-plug)
 
 ```
-Plug 'sunjon/shade.nvim'
+Plug 'jghauser/shade.nvim'
 ```
 
 ## Configuration
@@ -40,5 +42,5 @@ require'shade'.setup({
 
 ## License
 
-Copyright (c) Senghan Bright. Distributed under the MIT license
+Copyright (c) the authors. Distributed under the MIT license
 
