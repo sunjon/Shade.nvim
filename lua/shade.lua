@@ -1,6 +1,7 @@
 -- TODO: remove all active_overlays on tab change
 local api = vim.api
-local fn = vim.fn
+local create_autocmd = vim.api.nvim_create_autocmd
+local create_augroup = vim.api.nvim_create_augroup
 
 local E = {}
 E.DEFAULT_OVERLAY_OPACITY = 50
@@ -326,70 +327,6 @@ end
 
 local shade = {}
 
--- init
-shade.init = function(opts)
-	state.active_overlays = {}
-
-	opts = opts or {}
-	state.debug = opts.debug or false
-
-	state.overlay_opacity = opts.overlay_opacity
-		or (state.debug == true and E.DEBUG_OVERLAY_OPACITY or E.DEFAULT_OVERLAY_OPACITY)
-	state.opacity_step = opts.opacity_step or E.DEFAULT_OPACITY_STEP
-	state.shade_under_float = opts.shade_under_float or true
-	state.exclude_filetypes = opts.exclude_filetypes or {}
-
-	state.shade_nsid = api.nvim_create_namespace("shade")
-
-	local shade_action = {
-		["brightness_up"] = "brightness_up()",
-		["brightness_down"] = "brightness_down()",
-		["toggle"] = "toggle()",
-	}
-
-	if opts.keys ~= nil then
-		for action, key in pairs(opts.keys) do
-			if not shade_action[action] then
-				log("init:keymap", "unknown action " .. action)
-			else
-				map_key("n", key, shade_action[action])
-			end
-		end
-	end
-
-	create_hl_groups()
-
-	api.nvim_set_decoration_provider(state.shade_nsid, { on_win = shade.event_listener })
-
-	local shadeAutocmds = api.create_augroup("shade", { clear = true })
-	api.create_autocmd({ "WinEnter", "VimEnter" }, {
-		pattern = "*",
-		callback = api.autocmd("WinEnter", win_getid()),
-		group = shadeAutocmds,
-	})
-	api.create_autocmd({ "WinClosed" }, {
-		pattern = "*",
-		callback = api.autocmd("WinClosed", fn.expand("<afile>")),
-		group = shadeAutocmds,
-	})
-	api.create_autocmd({ "TabEnter" }, {
-		pattern = "*",
-		callback = api.autocmd("TabEnter", win_getid()),
-		group = shadeAutocmds,
-	})
-	api.create_autocmd({ "OptionSet" }, {
-		pattern = "*",
-		callback = api.autocmd("OptionSet", win_getid()),
-		group = shadeAutocmds,
-	})
-
-	log("Init", "-- Shade.nvim started --")
-
-	return true
-end
-
---
-
 shade.on_win_enter = function(event, winid)
 	log(event, winid)
 	if not state.active_overlays[winid] then
@@ -498,6 +435,97 @@ shade.change_brightness = function(level)
 	)
 end
 
+local run_autocmd = function(event, winid)
+	if not state.active then
+		return
+	end
+	log("autocmd: " .. event .. " : " .. winid)
+
+	local event_fn = {
+		["WinEnter"] = function()
+			local diff_enabled = api.nvim_win_get_option(winid, "diff")
+			if not diff_enabled then
+				shade.on_win_enter(event, winid)
+			end
+		end,
+		["WinClosed"] = function()
+			shade.on_win_closed(event, winid)
+		end,
+		["TabEnter"] = function()
+			remove_all_overlays()
+			create_tabpage_overlays(0)
+		end,
+	}
+
+	local fn = event_fn[event]
+	if fn then
+		fn()
+	end
+end
+
+-- init
+shade.init = function(opts)
+	state.active_overlays = {}
+
+	opts = opts or {}
+	state.debug = opts.debug or false
+
+	state.overlay_opacity = opts.overlay_opacity
+		or (state.debug == true and E.DEBUG_OVERLAY_OPACITY or E.DEFAULT_OVERLAY_OPACITY)
+	state.opacity_step = opts.opacity_step or E.DEFAULT_OPACITY_STEP
+	state.shade_under_float = opts.shade_under_float or true
+	state.exclude_filetypes = opts.exclude_filetypes or {}
+
+	state.shade_nsid = api.nvim_create_namespace("shade")
+
+	local shade_action = {
+		["brightness_up"] = "brightness_up()",
+		["brightness_down"] = "brightness_down()",
+		["toggle"] = "toggle()",
+	}
+
+	if opts.keys ~= nil then
+		for action, key in pairs(opts.keys) do
+			if not shade_action[action] then
+				log("init:keymap", "unknown action " .. action)
+			else
+				map_key("n", key, shade_action[action])
+			end
+		end
+	end
+
+	create_hl_groups()
+
+	api.nvim_set_decoration_provider(state.shade_nsid, { on_win = shade.event_listener })
+
+	local shadeAutocmds = create_augroup("shade", { clear = true })
+	create_autocmd({ "WinEnter", "VimEnter" }, {
+		pattern = "*",
+		callback = function()
+			run_autocmd("WinEnter", win_getid())
+		end,
+		group = shadeAutocmds,
+	})
+	create_autocmd({ "WinClosed" }, {
+		pattern = "*",
+		callback = function()
+			run_autocmd("WinClosed", vim.fn.expand("<afile>"))
+		end,
+		group = shadeAutocmds,
+	})
+	create_autocmd({ "TabEnter" }, {
+		pattern = "*",
+		callback = function()
+			run_autocmd("TabEnter", win_getid())
+		end,
+		group = shadeAutocmds,
+	})
+
+	log("Init", "-- Shade.nvim started --")
+
+	return true
+end
+
 -- Main
 local M = {}
 
@@ -542,38 +570,6 @@ M.toggle = function()
 		create_tabpage_overlays(0)
 		print("on")
 		state.active = true
-	end
-end
-
-M.autocmd = function(event, winid)
-	if not state.active then
-		return
-	end
-	log("AutoCmd: " .. event .. " : " .. winid)
-
-	local event_fn = {
-		["WinEnter"] = function()
-			shade.on_win_enter(event, winid)
-		end,
-		["WinClosed"] = function()
-			shade.on_win_closed(event, winid)
-		end,
-		["TabEnter"] = function()
-			remove_all_overlays()
-			create_tabpage_overlays(0)
-		end,
-		["OptionSet"] = function()
-			local diff_enabled = api.nvim_win_get_option(winid, "diff")
-			if diff_enabled then
-				unshade_window(winid)
-				shade_tabpage(winid)
-			end
-		end,
-	}
-
-	local fn = event_fn[event]
-	if fn then
-		fn()
 	end
 end
 
