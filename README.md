@@ -1,4 +1,4 @@
-**This is a fork with all the existing PRs merged. I will try to further improve the plugin in the future.**
+**This is a fork with all the existing PRs merged and a number of additional fixes. I will try to further improve the plugin in the future.**
 
 # shade.nvim
 
@@ -39,6 +39,10 @@ require'shade'.setup({
 * The color of the numbers in the brightness control popup can be customized by creating a highlight group named: `ShadeBrightnessPopup` and setting the attributes to your liking.
 
 * The `exclude_filetypes` table above is just an example. No filetypes are excluded by default.
+
+## Interactions with other plugins
+
+Other plugins with floating windows (for example `treesitter-context`) might have these not show up. This can be fixed by setting the `zindex` to 50.
 
 ## License
 
