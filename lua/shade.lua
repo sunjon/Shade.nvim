@@ -1,5 +1,6 @@
 -- TODO: remove all active_overlays on tab change
 local api = vim.api
+local fn = vim.fn
 
 local E = {}
 E.DEFAULT_OVERLAY_OPACITY = 50
@@ -209,6 +210,10 @@ local function create_floatwin(config)
 	return window
 end
 
+local function win_getid()
+	return api.nvim_get_current_win()
+end
+
 --
 
 local function map_key(mode, key, action)
@@ -356,19 +361,27 @@ shade.init = function(opts)
 
 	api.nvim_set_decoration_provider(state.shade_nsid, { on_win = shade.event_listener })
 
-	-- setup autocommands -- TODO: set a precalculated winid
-	api.nvim_exec(
-		[[
-    augroup shade
-    au!
-    au WinEnter,VimEnter * call v:lua.require'shade'.autocmd('WinEnter',  win_getid())
-    au WinClosed         * call v:lua.require'shade'.autocmd('WinClosed', expand('<afile>'))
-    au TabEnter          * call v:lua.require'shade'.autocmd('TabEnter',  win_getid())
-    au OptionSet         diff call v:lua.require'shade'.autocmd('OptionSet', win_getid())
-    augroup END
-  ]],
-		false
-	)
+	local shadeAutocmds = api.create_augroup("shade", { clear = true })
+	api.create_autocmd({ "WinEnter", "VimEnter" }, {
+		pattern = "*",
+		callback = api.autocmd("WinEnter", win_getid()),
+		group = shadeAutocmds,
+	})
+	api.create_autocmd({ "WinClosed" }, {
+		pattern = "*",
+		callback = api.autocmd("WinClosed", fn.expand("<afile>")),
+		group = shadeAutocmds,
+	})
+	api.create_autocmd({ "TabEnter" }, {
+		pattern = "*",
+		callback = api.autocmd("TabEnter", win_getid()),
+		group = shadeAutocmds,
+	})
+	api.create_autocmd({ "OptionSet" }, {
+		pattern = "*",
+		callback = api.autocmd("OptionSet", win_getid()),
+		group = shadeAutocmds,
+	})
 
 	log("Init", "-- Shade.nvim started --")
 
@@ -550,7 +563,7 @@ M.autocmd = function(event, winid)
 			create_tabpage_overlays(0)
 		end,
 		["OptionSet"] = function()
-			local diff_enabled = api.nvim_get_vvar("option_new")
+			local diff_enabled = api.nvim_win_get_option(winid, "diff")
 			if diff_enabled then
 				unshade_window(winid)
 				shade_tabpage(winid)
