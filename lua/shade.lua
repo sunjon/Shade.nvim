@@ -346,7 +346,7 @@ shade.event_listener = function(_, winid, _, _, _)
     if current_wincfg[m] ~= cached.wincfg[m] then
       log("event_listener: resized", winid)
       state.active_overlays[winid].wincfg = current_wincfg
-      api.nvim_win_set_config(cached.winid, filter_wininfo(current_wincfg))
+      pcall(api.nvim_win_set_config, cached.winid, filter_wininfo(current_wincfg))
       goto continue
     end
   end
