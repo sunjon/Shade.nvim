@@ -1,4 +1,4 @@
-**This is a fork with all the existing PRs merged and a number of additional fixes. I will try to further improve the plugin in the future.**
+**This is a fork with all the existing PRs merged and a number of additional fixes. I will try to further improve the plugin in the future.** -> use tint.nvim instead
 
 # shade.nvim
 
