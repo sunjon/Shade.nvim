@@ -483,6 +483,11 @@ M.autocmd = function(event, winid)
   if not state.active then
     return
   end
+  if (winid) then
+    log("AutoCmd: " .. event .. " : " .. winid)
+  else
+    log("AutoCmd: " .. event)
+  end
 
   local event_fn = {
     ["WinEnter"] = function()
