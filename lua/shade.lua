@@ -105,6 +105,7 @@ local function filter_wininfo(wininfo)
     col    = wininfo.wincol - 1,
     width  = wininfo.width,
     height = wininfo.height,
+    zindex = 1,
   }
 end
 
@@ -148,6 +149,33 @@ local function map_key(mode, key, action)
 end
 
 
+--
+
+local function is_filetype_excluded(filetype)
+  for _, value in ipairs(state.exclude_filetypes) do
+    if value == filetype then
+      return true
+    end
+
+  end
+  return false
+end
+
+local function can_shade(winid)
+  if #state.exclude_filetypes == 0 then
+    return true
+  end
+  local buf_id = vim.api.nvim_win_get_buf(winid)
+  local filetype = vim.api.nvim_buf_get_option(buf_id, "filetype")
+
+  if is_filetype_excluded(filetype) then
+    return false
+  end
+
+  return true
+end
+
+--
 
 local function shade_window(winid)
   local overlay = state.active_overlays[winid]
@@ -179,10 +207,14 @@ end
 local function shade_tabpage(winid)
   winid = winid or api.nvim_get_current_win()
   for overlay_winid, _ in pairs(state.active_overlays) do
-    local diff_enabled = api.nvim_win_get_option(overlay_winid, 'diff')
-    if overlay_winid ~= winid and diff_enabled == false then
-      log("deactivating window", overlay_winid)
-      shade_window(overlay_winid)
+    if api.nvim_win_is_valid(overlay_winid) then
+      local diff_enabled = api.nvim_win_get_option(overlay_winid, 'diff')
+      if overlay_winid ~= winid and diff_enabled == false then
+        if can_shade(overlay_winid) then
+          log("deactivating window", overlay_winid)
+          shade_window(overlay_winid)
+        end
+      end
     end
   end
 end
@@ -191,7 +223,9 @@ end
 
 local function remove_all_overlays()
   for _, overlay in pairs(state.active_overlays) do
-    api.nvim_win_close(overlay.winid, true)
+    if api.nvim_win_is_valid(overlay.winid) then
+      api.nvim_win_close(overlay.winid, true)
+    end
   end
   state.active_overlays = {}
 end
@@ -213,7 +247,9 @@ local function create_tabpage_overlays(tabid)
   local wincfg
   for _, winid in pairs(api.nvim_tabpage_list_wins(tabid)) do
     wincfg = api.nvim_call_function("getwininfo", {winid})[1]
-    create_overlay_window(winid, filter_wininfo(wincfg))
+    if can_shade(winid) then
+      create_overlay_window(winid, filter_wininfo(wincfg))
+    end
   end
   unshade_window(api.nvim_get_current_win())
 end
@@ -232,6 +268,7 @@ shade.init = function(opts)
                               E.DEFAULT_OVERLAY_OPACITY)
   state.opacity_step = opts.opacity_step or E.DEFAULT_OPACITY_STEP
   state.shade_under_float = opts.shade_under_float or true
+  state.exclude_filetypes = opts.exclude_filetypes or {}
 
   state.shade_nsid = api.nvim_create_namespace("shade")
 
@@ -263,6 +300,7 @@ shade.init = function(opts)
     au WinClosed         * call v:lua.require'shade'.autocmd('WinClosed', expand('<afile>'))
     au TabEnter          * call v:lua.require'shade'.autocmd('TabEnter',  win_getid())
     au OptionSet         diff call v:lua.require'shade'.autocmd('OptionSet', win_getid())
+    au SessionLoadPost   * call v:lua.require'shade'.autocmd('SessionLoadPost')
     augroup END
   ]], false)
 
@@ -308,7 +346,7 @@ shade.event_listener = function(_, winid, _, _, _)
     if current_wincfg[m] ~= cached.wincfg[m] then
       log("event_listener: resized", winid)
       state.active_overlays[winid].wincfg = current_wincfg
-      api.nvim_win_set_config(cached.winid, filter_wininfo(current_wincfg))
+      pcall(api.nvim_win_set_config, cached.winid, filter_wininfo(current_wincfg))
       goto continue
     end
   end
@@ -323,10 +361,36 @@ shade.on_win_closed = function(event, winid)
   if overlay == nil then
     log(event, "no overlay to close")
   else
-    api.nvim_win_close(overlay.winid, false)
-    log(event, ("[%d] : overlay %d destroyed"):format(winid, overlay.winid))
-    state.active_overlays[winid] = nil
+    log(event, ("trying to close overlay %d"):format(winid))
+    if api.nvim_win_is_valid(overlay.winid) then
+      api.nvim_win_close(overlay.winid, false)
+      log(event, ("[%d] : overlay %d destroyed"):format(winid, overlay.winid))
+      if (winid) then
+        state.active_overlays[winid] = nil
+      end
+    end
   end
+end
+
+shade.on_session_load_post = function()
+    shade.toggle_off()
+    vim.schedule(function()
+      shade.toggle_on()
+    end)
+end
+
+shade.toggle_on = function()
+  create_tabpage_overlays(0)
+  state.active = true
+end
+
+shade.toggle_off = function()
+  remove_all_overlays()
+  state.active = false
+end
+
+shade.toggle = function()
+  if state.active then shade.toggle_off() else shade.toggle_on() end
 end
 
 shade.change_brightness = function(level)
@@ -413,23 +477,17 @@ M.brightness_down = function()
   shade.change_brightness(adjusted)
 end
 
-M.toggle = function()
-  if state.active then
-    remove_all_overlays()
-    print("off")
-    state.active = false
-  else
-    create_tabpage_overlays(0)
-    print("on")
-    state.active = true
-  end
-end
+M.toggle = shade.toggle
 
 M.autocmd = function(event, winid)
   if not state.active then
     return
   end
-  log("AutoCmd: " .. event .. " : " .. winid)
+  if (winid) then
+    log("AutoCmd: " .. event .. " : " .. winid)
+  else
+    log("AutoCmd: " .. event)
+  end
 
   local event_fn = {
     ["WinEnter"] = function()
@@ -448,6 +506,9 @@ M.autocmd = function(event, winid)
        unshade_window(winid)
        shade_tabpage(winid)
      end
+    end,
+    ["SessionLoadPost"] = function()
+     shade.on_session_load_post()
     end
   }
 
