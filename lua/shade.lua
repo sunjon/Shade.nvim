@@ -207,11 +207,13 @@ end
 local function shade_tabpage(winid)
   winid = winid or api.nvim_get_current_win()
   for overlay_winid, _ in pairs(state.active_overlays) do
-    local diff_enabled = api.nvim_win_get_option(overlay_winid, 'diff')
-    if overlay_winid ~= winid and diff_enabled == false then
-      if can_shade(overlay_winid) then
-        log("deactivating window", overlay_winid)
-        shade_window(overlay_winid)
+    if api.nvim_win_is_valid(overlay_winid) then
+      local diff_enabled = api.nvim_win_get_option(overlay_winid, 'diff')
+      if overlay_winid ~= winid and diff_enabled == false then
+        if can_shade(overlay_winid) then
+          log("deactivating window", overlay_winid)
+          shade_window(overlay_winid)
+        end
       end
     end
   end
@@ -221,7 +223,9 @@ end
 
 local function remove_all_overlays()
   for _, overlay in pairs(state.active_overlays) do
-    api.nvim_win_close(overlay.winid, true)
+    if api.nvim_win_is_valid(overlay.winid) then
+      api.nvim_win_close(overlay.winid, true)
+    end
   end
   state.active_overlays = {}
 end
@@ -356,9 +360,14 @@ shade.on_win_closed = function(event, winid)
   if overlay == nil then
     log(event, "no overlay to close")
   else
-    api.nvim_win_close(overlay.winid, false)
-    log(event, ("[%d] : overlay %d destroyed"):format(winid, overlay.winid))
-    state.active_overlays[winid] = nil
+    log(event, ("trying to close overlay %d"):format(winid))
+    if api.nvim_win_is_valid(overlay.winid) then
+      api.nvim_win_close(overlay.winid, false)
+      log(event, ("[%d] : overlay %d destroyed"):format(winid, overlay.winid))
+      if (winid) then
+        state.active_overlays[winid] = nil
+      end
+    end
   end
 end
 
